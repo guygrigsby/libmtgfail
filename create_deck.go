@@ -36,39 +36,19 @@ func BuildDeck(ctx context.Context, client *firestore.Client, deckList map[strin
 		)
 	}
 
-	ch := make(chan *CardShort)
-	ech := make(chan error)
 	for _, ref := range snapshot {
-		ref := ref
-		go func() error {
-			var card *CardShort
-			err := ref.DataTo(card)
-			if err != nil {
-				log.Error(
-					"Cannot extract Data",
-					"err", err,
-					"ref", ref,
-				)
-				return err
-			}
-			ch <- card
-			return nil
-		}()
-
-	}
-	for range snapshot {
-		select {
-		case c := <-ch:
-			deck.Cards = append(deck.Cards, c)
-		case err := <-ech:
-			close(ch)
-			close(ech)
+		var card *CardShort
+		err := ref.DataTo(card)
+		if err != nil {
 			log.Error(
-				"can't get cards",
+				"Cannot extract Data",
 				"err", err,
+				"ref", ref,
 			)
 			return nil, err
 		}
+		deck.Cards = append(deck.Cards, card)
+
 	}
 
 	return &deck, nil

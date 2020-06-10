@@ -93,8 +93,9 @@ func ConvertToPairText(deck *Deck) (map[string]int, error) {
 func FetchDeck(u *url.URL, log log15.Logger) (io.ReadCloser, error, int) {
 	var (
 		content io.ReadCloser
-		deckURI string
 	)
+
+	deckURI := u.String()
 
 	switch u.Host {
 	//https://tappedout.net/mtg-decks/22-01-20-kess-storm/

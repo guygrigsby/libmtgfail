@@ -2,7 +2,6 @@ package libmtgfail
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -91,37 +90,12 @@ func ConvertToPairText(deck *Deck) (map[string]int, error) {
 }
 
 // FetchDeck ...
-func FetchDeck(req *http.Request, log log15.Logger) (io.ReadCloser, error, int) {
-	q := req.URL.Query()
+func FetchDeck(u url.URL, log log15.Logger) (io.ReadCloser, error, int) {
 	var (
-		err     error
-		content io.ReadCloser = req.Body
+		content io.ReadCloser
+		deckURI string
 	)
 
-	deckURI := q.Get("deck")
-	if deckURI == "" {
-
-		var d struct {
-			URI string `json:"URI"`
-		}
-		if err := json.NewDecoder(req.Body).Decode(&d); err != nil {
-			log.Error(
-				"cannot parse body",
-				"err", err,
-			)
-			return nil, err, http.StatusInternalServerError
-		}
-		deckURI = d.URI
-	}
-	u, err := url.Parse(deckURI)
-	if err != nil {
-
-		log.Error(
-			"Cannot parse deck uri",
-			"err", err,
-		)
-		return nil, err, http.StatusBadRequest
-	}
 	switch u.Host {
 	//https://tappedout.net/mtg-decks/22-01-20-kess-storm/
 	case "tappedout.net":

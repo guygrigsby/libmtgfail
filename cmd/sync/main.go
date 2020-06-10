@@ -6,14 +6,20 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
+	"sync"
 
-	firebase "firebase.google.com/go"
+	"cloud.google.com/go/firestore"
 	"github.com/guygrigsby/mtgfail"
 	"github.com/inconshreveable/log15"
 	"github.com/prometheus/common/log"
 	"google.golang.org/api/option"
 )
+
+func main() {
+	BulkSync()
+}
 
 func BulkSync() {
 
@@ -36,8 +42,9 @@ func BulkSync() {
 		)
 		return
 	}
-	opt := option.WithCredentialsFile("snackend-firebase-key.json")
-	app, err := firebase.NewApp(context.Background(), nil, opt)
+	ctx := context.Background()
+	c := os.Getenv("FIREBASE_CONFIG")
+	client, err := firestore.NewClient(ctx, "snackend", option.WithCredentialsJSON([]byte(c)))
 	if err != nil {
 		log.Error(
 			"cannot connect to firestore",
@@ -45,29 +52,48 @@ func BulkSync() {
 		)
 		return
 	}
-	err = upload(context.Background(), app, cards, log)
+	err = upload(context.Background(), 100, client, cards, log)
 }
-func upload(ctx context.Context, app *firebase.App, bulk map[string]*mtgfail.Entry, log log15.Logger) error {
-	client, err := app.Firestore(ctx)
-	if err != nil {
-		log.Error(
-			"cannot create client",
-			"err", err,
-		)
-		return err
-	}
-	cards := client.Collection("cards")
-	for _, card := range bulk {
-		df, wr, err := cards.Add(ctx, card)
-		if err != nil {
-			log.Error(
-				"cannot create document",
-				"err", err,
-				"res", wr,
-				"docref", df,
-			)
-			return err
+func upload(ctx context.Context, cc int, client *firestore.Client, bulk map[string]*mtgfail.Entry, log log15.Logger) error {
+
+	var wg sync.WaitGroup
+	ch := make(chan *mtgfail.Entry, len(bulk))
+	done := make(chan struct{})
+	go func() {
+		for _, card := range bulk {
+			ch <- card
 		}
+		close(ch)
+		wg.Wait()
+		done <- struct{}{}
+	}()
+	cards := client.Collection("cards")
+	for i := 0; i < cc; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for card := range ch {
+				name := card.Name
+				if strings.Contains(name, "//") {
+					name = strings.ReplaceAll(name, "//", "")
+				}
+				doc := cards.Doc(name)
+				wr, err := doc.Set(ctx, card)
+				if err != nil {
+					log.Error(
+						"cannot create document skipping",
+						"err", err,
+						"res", wr,
+					)
+				}
+
+			}
+		}()
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-done:
 	}
 	return nil
 }

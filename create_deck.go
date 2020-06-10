@@ -1,4 +1,4 @@
-package main
+package libmtgfail
 
 import (
 	"context"

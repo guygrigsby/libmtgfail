@@ -1,4 +1,4 @@
-module github.com/guygrigsby/mtgfail-react/functions
+module github.com/guygrigsby/libmtgfail
 
 go 1.13
 

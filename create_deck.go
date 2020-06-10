@@ -90,7 +90,7 @@ func ConvertToPairText(deck *Deck) (map[string]int, error) {
 }
 
 // FetchDeck ...
-func FetchDeck(u url.URL, log log15.Logger) (io.ReadCloser, error, int) {
+func FetchDeck(u *url.URL, log log15.Logger) (io.ReadCloser, error, int) {
 	var (
 		content io.ReadCloser
 		deckURI string
